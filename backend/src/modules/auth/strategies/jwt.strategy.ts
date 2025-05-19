@@ -1,22 +1,40 @@
-/* eslint-disable @typescript-eslint/require-await */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { AuthUser } from 'src/common/types/auth-user.interface';
+import { Request } from 'express';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
+    const jwtExtractor = ExtractJwt.fromAuthHeaderAsBearerToken() as (
+      req: Request,
+    ) => string | null;
+
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: jwtExtractor,
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'supersecretkey',
+      secretOrKey: process.env.JWT_SECRET ?? 'supersecretkey',
     });
   }
 
-  async validate(payload: any) {
-    return { id: payload.sub, email: payload.email };
+  validate(payload: unknown): AuthUser {
+    if (
+      typeof payload !== 'object' ||
+      payload === null ||
+      !('sub' in payload) ||
+      !('email' in payload)
+    ) {
+      throw new Error('Invalid JWT payload');
+    }
+
+    const { sub, email } = payload as { sub: number; email: string };
+
+    return {
+      id: sub,
+      email,
+    };
   }
 }
